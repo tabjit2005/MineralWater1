@@ -68,7 +68,7 @@ def require_connection() -> None:
 
 
 def student_selector(key: str = "student") -> str:
-    st.image("1.jpg", width=200)
+    st.image("1.jpg", width=500)
     students = get_students()
     if not students:
         st.info("ยังไม่มีข้อมูลนักศึกษา กรุณาไปหน้า Admin / Setup แล้วสร้างข้อมูลตัวอย่าง")
