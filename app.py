@@ -24,7 +24,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-st.image("1.jpg", width=120)
+
 st.markdown(
     """
     <style>
@@ -49,7 +49,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
+st.image("1.jpg", width=120)
 
 def require_connection() -> None:
     try:
