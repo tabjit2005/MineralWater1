@@ -88,7 +88,6 @@ def show_flash() -> None:
 
 
 def customer_selector(key: str = "customer") -> str:
-    st.image("spongebob meme.jpg", width=500)
     customers = get_customers()
     if not customers:
         st.info("ยังไม่มีข้อมูลลูกค้า กรุณาไปหน้า Admin / Setup แล้วสร้างข้อมูลตัวอย่าง หรือเพิ่มลูกค้าที่หน้า Customers")
