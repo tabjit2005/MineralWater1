@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import base64
+import re
+import unicodedata
 import zlib
+from functools import lru_cache
 from html import escape
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
@@ -35,6 +39,7 @@ from neo4j_service import (
 
 IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
 IMAGE_MAX_SIDE = 480  # stored pictures are shrunk to this so a node property stays small
+BRAND_IMAGE_DIR = Path(__file__).parent / "images"  # bundled brand photos, see images/CREDITS.md
 
 st.set_page_config(
     page_title="Mineral Water Recommender",
@@ -138,14 +143,23 @@ def placeholder_svg(water_id: str, name: str) -> str:
 </svg>"""
 
 
+@lru_cache(maxsize=None)
+def brand_picture(name: str) -> bytes | None:
+    """Bundled photo matched by water name: "Nestlé Pure Life" -> images/nestle-pure-life.jpg."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
+    path = BRAND_IMAGE_DIR / f"{slug}.jpg"
+    return path.read_bytes() if slug and path.is_file() else None
+
+
 def water_picture(water_id: str, name: str, images: dict[str, bytes]) -> bytes | str:
-    """What to hand to st.image: the uploaded JPEG, or the drawn placeholder."""
-    return images.get(water_id) or placeholder_svg(water_id, name)
+    """What to hand to st.image: uploaded JPEG, else bundled brand photo, else drawn placeholder."""
+    return images.get(water_id) or brand_picture(name) or placeholder_svg(water_id, name)
 
 
 def water_picture_uri(water_id: str, name: str, images: dict[str, bytes]) -> str:
     """Same picture as a data URI, for st.column_config.ImageColumn."""
-    data = images.get(water_id)
+    data = images.get(water_id) or brand_picture(name)
     if data:
         return "data:image/jpeg;base64," + base64.b64encode(data).decode()
     return "data:image/svg+xml;base64," + base64.b64encode(placeholder_svg(water_id, name).encode()).decode()
@@ -385,7 +399,10 @@ elif page == "Waters":
             with gallery[i % 6]:
                 st.image(water_picture(w["water_id"], w["name"], images), width=140)
                 st.caption(f"{w['water_id']} — {w['name']}")
-        st.caption("น้ำแร่ที่ยังไม่มีรูปจะแสดงรูปขวดเริ่มต้น อัปโหลดรูปจริงได้ที่แท็บ เพิ่ม หรือ แก้ไข ด้านล่าง")
+        st.caption(
+            "น้ำแร่ที่ยังไม่ได้อัปโหลดรูปจะใช้รูปประจำแบรนด์ตามชื่อ (ถ้ามีในโฟลเดอร์ images) "
+            "ไม่เช่นนั้นจะแสดงรูปขวดที่ระบบวาดให้ อัปโหลดรูปเองได้ที่แท็บ เพิ่ม หรือ แก้ไข ด้านล่าง"
+        )
     manage_nodes(
         noun="น้ำแร่",
         id_field="water_id",
