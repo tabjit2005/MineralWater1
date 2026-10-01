@@ -97,6 +97,12 @@ st.markdown(
       }
       .brand b {font-size: 1.15rem; line-height: 1.2; color: #ffffff;}
       .brand span {font-size: .78rem; opacity: .75;}
+      .author {
+        padding: .7rem .85rem; border-radius: 14px; font-size: .9rem; line-height: 1.5;
+        background: rgba(255,255,255,.07); border: 1px solid rgba(95,212,230,.30);
+      }
+      .author small {display: block; opacity: .7; font-size: .75rem; letter-spacing: .03em;}
+      .author b {color: #ffffff;}
       [data-testid="stSidebar"] [role="radiogroup"] {gap: .2rem;}
       [data-testid="stSidebar"] [role="radiogroup"] label {
         width: 100%; padding: .5rem .7rem; border-radius: 12px; transition: background .15s;
@@ -344,6 +350,16 @@ with st.sidebar:
     st.divider()
     page = st.radio("เมนู", list(PAGES), format_func=PAGES.get, key="page")
     st.divider()
+    st.markdown(
+        """
+        <div class="author">
+          <small>ผู้จัดทำ</small>
+          <b>กมลวรรณ ทับจิต</b><br>
+          รหัสนักศึกษา 664245002
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.caption("โปรเจ็ค Graph Database ระดับปริญญาตรี")
 
 st.markdown(

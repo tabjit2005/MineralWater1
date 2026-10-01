@@ -1,5 +1,7 @@
 # Mineral Water Recommendation System
 
+**ผู้จัดทำ:** กมลวรรณ ทับจิต รหัสนักศึกษา 664245002
+
 โปรเจ็คตัวอย่างระดับปริญญาตรีสำหรับรายวิชา Graph Database / Advanced Database
 พัฒนาด้วย **Streamlit + Neo4j Aura + Cypher** และออกแบบให้ deploy ผ่าน **GitHub → Streamlit Community Cloud** ได้โดยตรง
 
