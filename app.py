@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import re
 import unicodedata
 import zlib
@@ -9,8 +10,10 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import quote
 
 import pandas as pd
+import pymupdf
 import streamlit as st
 from PIL import Image, ImageOps
 
@@ -51,6 +54,75 @@ PAGES = {
     "Graph Explorer": "🕸️ กราฟความสัมพันธ์",
     "Admin / Setup": "⚙️ ตั้งค่าข้อมูล",
 }
+
+# Hub (landing page): homework 1-3 live in homework/<folder>/, card 4 opens this app.
+REPO_URL = "https://github.com/tabjit2005/MineralWater1"
+REPO_BRANCH = "main"
+HOMEWORK_DIR = Path(__file__).parent / "homework"
+HOMEWORK = [
+    {
+        "folder": "01_club",
+        "tag": "01 / CLUB",
+        "icon": "👥",
+        "title": "ระบบชมรมด้วย Neo4j",
+        "text": "ออกแบบกราฟนักศึกษาและชมรม แล้วเขียน Cypher แนะนำชมรมจากเพื่อนของนักศึกษา",
+        "name": "งานที่ 1 — ระบบชมรมด้วย Neo4j",
+        "about": (
+            "เอกสารรวมคำสั่ง Cypher ของระบบชมรมพร้อมภาพผลลัพธ์จาก Neo4j "
+            "เริ่มจากสร้างข้อมูลนักศึกษาและชมรม กำหนดความสัมพันธ์ แล้วไล่ทีละขั้นจนได้คำสั่งแนะนำชมรม "
+            "ที่เพื่อนของนักศึกษาเป็นสมาชิกมากที่สุด โดยไม่แนะนำชมรมที่เจ้าตัวเป็นสมาชิกอยู่แล้ว"
+        ),
+        "topics": [
+            "สร้าง Student 5 คน และ Club 3 ชมรม ด้วย CREATE",
+            "ความสัมพันธ์ FRIEND (นักศึกษา → นักศึกษา) และ MEMBER_OF (นักศึกษา → ชมรม)",
+            "ค้นหาด้วย MATCH + WHERE + RETURN",
+            "Traversal: S001 → FRIEND → เพื่อน → MEMBER_OF → Club",
+            "นับเพื่อนในแต่ละชมรมด้วย count(DISTINCT friend) และตัดชมรมเดิมด้วย WHERE NOT",
+            "แนะนำชมรมอันดับ 1 ด้วย ORDER BY และ LIMIT 1",
+        ],
+    },
+    {
+        "folder": "02_graph",
+        "tag": "02 / GRAPH",
+        "icon": "🕸️",
+        "title": "น้ำแร่ด้วย Graph",
+        "text": "สร้างกราฟผู้ใช้และน้ำแร่ด้วย Python / NetworkX เพื่อสำรวจความชอบและแนะนำน้ำแร่",
+        "name": "งานที่ 2 — ระบบแนะนำน้ำแร่ด้วย Graph (NetworkX)",
+        "about": (
+            "Notebook บน Google Colab ที่สร้างกราฟแบบไม่มีทิศทางของผู้ใช้ 10 คนและน้ำแร่ 7 ยี่ห้อด้วย NetworkX "
+            "แล้วใช้การเดินบนกราฟหาผู้ใช้ที่ชอบน้ำแร่เหมือนกัน เพื่อแนะนำยี่ห้อที่ผู้ใช้ยังไม่เคยเลือก "
+            "คะแนนของแต่ละยี่ห้อคือจำนวนเส้นทางที่เดินไปถึงยี่ห้อนั้นได้"
+        ),
+        "topics": [
+            "สร้าง Node ผู้ใช้และน้ำแร่ และ Edge ความชอบด้วย nx.Graph()",
+            "วาดกราฟด้วย matplotlib แยกสี Node สองประเภท",
+            "ใช้ G.neighbors() ตอบคำถามว่าใครชอบน้ำแร่อะไร",
+            "หาผู้ใช้ที่ชอบน้ำแร่เหมือนกันด้วยการเดินสองทอด",
+            "นับคะแนนคำแนะนำด้วย Counter และสร้างฟังก์ชัน recommend_waters()",
+        ],
+    },
+    {
+        "folder": "03_neo4j",
+        "tag": "03 / NEO4J",
+        "icon": "🗃️",
+        "title": "น้ำแร่ด้วย Neo4j",
+        "text": "เชื่อม Neo4j Aura จาก Python แล้วแนะนำน้ำแร่ด้วย Cypher จากลูกค้าที่มีรสนิยมคล้ายกัน",
+        "name": "งานที่ 3 — ระบบแนะนำน้ำแร่ด้วย Neo4j Aura",
+        "about": (
+            "Notebook ที่ย้ายโจทย์น้ำแร่จากกราฟในหน่วยความจำไปเก็บใน Neo4j Aura ผ่าน Neo4j Python Driver "
+            "สร้าง Customer, Water และความสัมพันธ์ SIMILAR_TO กับ LIKES แล้วเขียน Cypher แนะนำน้ำแร่ "
+            "ที่ลูกค้าที่คล้ายกันชอบแต่เจ้าตัวยังไม่ได้ชอบ เป็นต้นแบบของระบบในการ์ดที่ 4"
+        ),
+        "topics": [
+            "เชื่อมต่อ Neo4j Aura และหา home database",
+            "สร้าง Unique Constraint ของ customer_id และ water_id",
+            "เพิ่มข้อมูลหลายรายการด้วย UNWIND + MERGE",
+            "Traversal หลายทอด: Customer → SIMILAR_TO → Customer → LIKES → Water",
+            "Aggregation ด้วย count() และแสดงผลเป็นตาราง pandas",
+            "ฟังก์ชัน recommend_waters(), find_customer() และ liked_waters()",
+        ],
+    },
+]
 
 st.set_page_config(
     page_title="ระบบแนะนำน้ำแร่",
@@ -129,6 +201,35 @@ st.markdown(
         color: white; font-size: .8rem; font-weight: 700;
       }
       .muted {opacity: .72; font-size: .9rem;}
+
+      /* Hub landing page */
+      .hero.hub {text-align: center; padding: 2.2rem 1.8rem 3.4rem;}
+      .hero.hub h1 {font-size: 2.5rem; margin-top: .7rem;}
+      .hub-badge {
+        display: inline-block; padding: .3rem 1rem; border-radius: 999px;
+        font-size: .75rem; letter-spacing: .14em;
+        background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.40);
+      }
+      .hub-head {display: flex; align-items: center; justify-content: space-between;}
+      .hub-icon {
+        width: 46px; height: 46px; border-radius: 14px; font-size: 1.35rem;
+        display: flex; align-items: center; justify-content: center;
+        background: #e1f1f7; border: 1px solid #c5e3ee;
+      }
+      .hub-tag {font-size: .75rem; letter-spacing: .1em; color: #4b7f95;}
+      /* Fixed minimum heights keep the buttons of all four cards on one line */
+      .hub-name {margin: .9rem 0 .2rem !important; padding: 0 !important; font-size: 1.2rem !important; min-height: 3.3rem;}
+      .hub-desc {margin: 0; min-height: 6.6rem; color: #33596b;}
+      [class*="st-key-card_hub_"] {min-height: 23.5rem;}
+      .hub-footer {text-align: center; color: #4b7f95; font-size: .88rem; line-height: 1.8;}
+      .hub-footer small {opacity: .8;}
+      /* Homework viewer page */
+      .hero.work h1 {font-size: 1.9rem; margin-top: .6rem;}
+      .work-section {margin: 0 0 .5rem; padding: 0; font-size: 1.1rem;}
+      .nb-label {
+        margin: .9rem 0 .25rem; font-size: .72rem; letter-spacing: .08em; color: #4b7f95;
+      }
+      .st-key-card_hub_app {border-color: #22b8cf; box-shadow: 0 6px 20px rgba(14,116,144,.16);}
     </style>
     """,
     unsafe_allow_html=True,
@@ -335,9 +436,220 @@ def manage_nodes(
             st.rerun()
 
 
+def hub_card_header(icon: str, tag: str, title: str, text: str) -> None:
+    st.markdown(
+        f"""
+        <div class="hub-head"><div class="hub-icon">{icon}</div><div class="hub-tag">{escape(tag)}</div></div>
+        <h3 class="hub-name">{escape(title)}</h3>
+        <p class="hub-desc">{escape(text)}</p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def homework_files(folder: str) -> list[Path]:
+    return sorted(p for p in (HOMEWORK_DIR / folder).glob("*") if p.is_file() and not p.name.startswith("."))
+
+
+def github_url(folder: str) -> str:
+    return f"{REPO_URL}/tree/{REPO_BRANCH}/homework/{folder}"
+
+
+def colab_url(folder: str, notebook: Path) -> str:
+    repo = REPO_URL.split("github.com/")[1]
+    return f"https://colab.research.google.com/github/{repo}/blob/{REPO_BRANCH}/homework/{folder}/{quote(notebook.name)}"
+
+
+def notebook_text(value: Any) -> str:
+    """Notebook JSON stores text either as one string or as a list of lines."""
+    return value if isinstance(value, str) else "".join(value or [])
+
+
+def output_text(value: Any) -> str:
+    """Saved notebook output as plain text, without terminal colour/cursor codes."""
+    return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", notebook_text(value)).rstrip()
+
+
+def render_notebook(path: Path) -> None:
+    """Show a Jupyter notebook: markdown, code, and the outputs saved in the file."""
+    cells = json.loads(path.read_text(encoding="utf-8")).get("cells", [])
+    for cell in cells:
+        source = notebook_text(cell.get("source"))
+        if not source.strip():
+            continue
+        if cell.get("cell_type") == "markdown":
+            st.markdown(source, unsafe_allow_html=True)
+            continue
+        if cell.get("cell_type") != "code":
+            continue
+        st.code(source, language="python")
+        # pip's progress bars are noise, so outputs of install cells are not shown.
+        outputs = [] if re.search(r"^\s*[!%]pip\b", source, re.MULTILINE) else cell.get("outputs", [])
+        if outputs:
+            st.markdown('<div class="nb-label">ผลลัพธ์</div>', unsafe_allow_html=True)
+        for output in outputs:
+            kind = output.get("output_type")
+            data = output.get("data", {})
+            if kind == "stream":
+                st.code(output_text(output.get("text")), language=None)
+            elif kind == "error":
+                st.code(output_text("\n".join(output.get("traceback", []))), language=None)
+            elif "image/png" in data:
+                st.image(base64.b64decode(notebook_text(data["image/png"])))
+            elif "text/plain" in data:
+                # Plain text is preferred over text/html, which Colab fills with its own widgets.
+                st.code(output_text(data["text/plain"]), language=None)
+
+
+@st.cache_data(show_spinner="กำลังเปิดเอกสาร...")
+def pdf_page_images(path: str, modified: float) -> list[bytes]:
+    """Render every PDF page to PNG; `modified` refreshes the cache when the file changes."""
+    with pymupdf.open(path) as document:
+        return [page.get_pixmap(dpi=130).tobytes("png") for page in document]
+
+
+def render_pdf(path: Path) -> None:
+    pages = pdf_page_images(str(path), path.stat().st_mtime)
+    for number, page in enumerate(pages, start=1):
+        st.image(page)  # natural size (about 1100 px wide); Streamlit caps it at the frame width
+        st.caption(f"หน้า {number} / {len(pages)}")
+
+
+def render_homework(work: dict[str, Any]) -> None:
+    """One homework: name, description, actions, and the work itself inside a scrolling frame."""
+    if st.button("← กลับหน้าหลัก"):
+        st.session_state["view"] = "hub"
+        st.rerun()
+
+    st.markdown(
+        f"""
+        <div class="hero work">
+          <span class="hub-badge">{escape(work["tag"])}</span>
+          <h1>{work["icon"]} {escape(work["name"])}</h1>
+          <p>{escape(work["text"])}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    files = homework_files(work["folder"])
+    viewable = [p for p in files if p.suffix.lower() in (".ipynb", ".pdf")]
+    about, actions = st.columns([2, 1])
+    with about, st.container(border=True, key="card_work_about"):
+        st.markdown('<h3 class="work-section">เกี่ยวกับการบ้านนี้</h3>', unsafe_allow_html=True)
+        st.write(work["about"])
+        st.markdown("**สิ่งที่ทำในงานนี้**\n" + "\n".join(f"- {topic}" for topic in work["topics"]))
+    with actions, st.container(border=True, key="card_work_files"):
+        st.markdown('<h3 class="work-section">ไฟล์งาน</h3>', unsafe_allow_html=True)
+        for path in files:
+            st.caption(f"📄 {path.name} · {path.stat().st_size / 1024:,.0f} KB")
+        for path in viewable:
+            if path.suffix.lower() == ".ipynb":
+                st.link_button("เปิดการบ้านใน Colab ↗", colab_url(work["folder"], path), width="stretch")
+        for path in files:
+            st.download_button(
+                f"ดาวน์โหลด {path.suffix.lstrip('.').upper() or 'ไฟล์'} ↓",
+                data=path.read_bytes(),
+                file_name=path.name,
+                width="stretch",
+                key=f"download_{work['folder']}_{path.name}",
+            )
+        st.link_button("ดูไฟล์บน GitHub ↗", github_url(work["folder"]), width="stretch")
+
+    if not viewable:
+        st.info("ยังไม่มีไฟล์ .ipynb หรือ .pdf ให้แสดงในโฟลเดอร์ของงานนี้")
+        return
+    st.markdown('<h3 class="work-section">เนื้อหาการบ้าน</h3>', unsafe_allow_html=True)
+    areas = st.tabs([p.name for p in viewable]) if len(viewable) > 1 else [st.container()]
+    for index, (area, path) in enumerate(zip(areas, viewable)):
+        with area, st.container(height=760, border=True, key=f"card_frame_{index}"):
+            if path.suffix.lower() == ".ipynb":
+                render_notebook(path)
+            else:
+                render_pdf(path)
+
+
+def render_hub() -> None:
+    """Landing page: one card per homework folder plus a card that opens the recommender."""
+    st.markdown(
+        """
+        <div class="hero hub">
+          <span class="hub-badge">HOMEWORK · RECOMMENDATION HUB</span>
+          <h1>รวมการบ้านและระบบแนะนำ</h1>
+          <p>ระบบชมรม · กราฟน้ำแร่ · Neo4j<br>เลือกงานที่ต้องการเปิดดูได้จากการ์ดด้านล่าง</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    columns = st.columns(len(HOMEWORK) + 1)
+    for column, work in zip(columns, HOMEWORK):
+        files = homework_files(work["folder"])
+        notebook = next((p for p in files if p.suffix.lower() == ".ipynb"), None)
+        pdf = next((p for p in files if p.suffix.lower() == ".pdf"), None)
+        with column, st.container(border=True, key=f"card_hub_{work['folder']}"):
+            hub_card_header(work["icon"], work["tag"], work["title"], work["text"])
+            if not files:
+                st.caption(f"⏳ ยังไม่มีไฟล์งาน — วางไฟล์ไว้ในโฟลเดอร์ `homework/{work['folder']}/`")
+                continue
+            if st.button("ดูการบ้าน →", type="primary", width="stretch", key=f"open_{work['folder']}"):
+                st.session_state["view"] = "homework"
+                st.session_state["homework"] = work["folder"]
+                st.rerun()
+            if notebook:
+                st.link_button("เปิดการบ้านใน Colab ↗", colab_url(work["folder"], notebook), width="stretch")
+            elif pdf:
+                st.download_button(
+                    "ดาวน์โหลดเอกสาร PDF ↓",
+                    data=pdf.read_bytes(),
+                    file_name=pdf.name,
+                    mime="application/pdf",
+                    width="stretch",
+                    key=f"pdf_{work['folder']}",
+                )
+            else:
+                st.link_button("ดูไฟล์บน GitHub ↗", github_url(work["folder"]), width="stretch")
+
+    with columns[-1], st.container(border=True, key="card_hub_app"):
+        hub_card_header(
+            "💧",
+            f"{len(HOMEWORK) + 1:02d} / APPLICATION",
+            "ระบบแนะนำน้ำแร่",
+            "ทดลองระบบแนะนำ เลือกผู้ใช้ จัดการข้อมูลลูกค้า น้ำแร่ และสำรวจกราฟความสัมพันธ์ภายในแอป",
+        )
+        if st.button("เข้าสู่ระบบแนะนำ →", type="primary", width="stretch"):
+            st.session_state["view"] = "app"
+            st.rerun()
+        st.link_button("ดูโค้ดโปรเจกต์บน GitHub ↗", REPO_URL, width="stretch")
+
+    st.divider()
+    st.markdown(
+        """
+        <div class="hub-footer">
+          กมลวรรณ ทับจิต · รหัสนักศึกษา 664245002<br>
+          <small>Mineral Water Recommendation Project</small>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# The hub needs no database, so it is shown before the Neo4j connection check.
+view = st.session_state.setdefault("view", "hub")
+opened_work = next((w for w in HOMEWORK if w["folder"] == st.session_state.get("homework")), None)
+if view == "homework" and opened_work:
+    render_homework(opened_work)
+    st.stop()
+if view != "app":
+    render_hub()
+    st.stop()
+
 require_connection()
 
 with st.sidebar:
+    if st.button("← กลับหน้าหลัก", width="stretch"):
+        st.session_state["view"] = "hub"
+        st.rerun()
     st.markdown(
         """
         <div class="brand">
