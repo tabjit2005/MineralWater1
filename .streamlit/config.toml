@@ -1,0 +1,18 @@
+# ธีมโทนน้ำแร่: พื้นขาวอมฟ้า + ฟ้าน้ำทะเล + น้ำเงินเข้ม
+[theme]
+base = "light"
+primaryColor = "#0e7490"
+backgroundColor = "#f3fafc"
+secondaryBackgroundColor = "#e1f1f7"
+textColor = "#0f2a3a"
+borderColor = "#c5e3ee"
+baseRadius = "large"
+font = "Sarabun:https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "Prompt:https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&display=swap, sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#0b3954"
+secondaryBackgroundColor = "#11506f"
+textColor = "#e8f7fb"
+primaryColor = "#5fd4e6"
+borderColor = "#1d6585"

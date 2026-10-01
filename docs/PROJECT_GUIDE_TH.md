@@ -225,7 +225,7 @@ params = {"customer_id": customer_id}
 ```
 
 แล้วส่ง parameter ผ่าน Neo4j Driver ซึ่งทำให้โค้ดอ่านง่ายและหลีกเลี่ยงการนำ input ไปประกอบ query string โดยตรง
-ประเด็นนี้สำคัญขึ้นเมื่อระบบเปิดให้ผู้ใช้พิมพ์รหัสและชื่อเองในหน้า Customers / Waters
+ประเด็นนี้สำคัญขึ้นเมื่อระบบเปิดให้ผู้ใช้พิมพ์รหัสและชื่อเองในหน้า ลูกค้า / น้ำแร่
 
 ---
 
@@ -257,20 +257,22 @@ records, _, _ = driver.execute_query(
 
 ## 11) หน้าจอของระบบ
 
-### Dashboard
+เมนูด้านซ้ายเป็นภาษาไทย ส่วนธีมสีและฟอนต์ (โทนน้ำ) กำหนดใน `.streamlit/config.toml` และ CSS ตอนต้นของ `app.py`
+
+### ภาพรวม (Dashboard)
 
 - จำนวน Customer, Water, LIKES และ SIMILAR_TO
 - ตารางความนิยมของน้ำแร่
 - โปรไฟล์ลูกค้า: น้ำแร่ที่ชอบและลูกค้าที่คล้ายกัน
 
-### Recommendations
+### แนะนำน้ำแร่ (Recommendations)
 
 - เลือก Customer
 - กำหนด Top-N
 - แสดง score
 - แสดงเหตุผลประกอบคำแนะนำ
 
-### Customers / Waters
+### ลูกค้า / น้ำแร่ (Customers / Waters)
 
 - ตารางข้อมูลทั้งหมด
 - เพิ่ม (ระบบเสนอรหัสถัดไปให้ และตรวจรหัสซ้ำ)
@@ -278,20 +280,20 @@ records, _, _ = driver.execute_query(
 - ลบ (ต้องติ๊กยืนยัน และลบ relationship ที่เกี่ยวข้องด้วย)
 - เฉพาะ Waters: แกลเลอรีรูป, อัปโหลดรูปตอนเพิ่ม, เปลี่ยนหรือลบรูปตอนแก้ไข (png / jpg / webp)
 
-### Relationships
+### ความสัมพันธ์ (Relationships)
 
 - เลือก Customer
 - เพิ่ม / เอาออกน้ำแร่ที่ชอบ (`LIKES`)
 - เพิ่ม / เอาออกลูกค้าที่คล้ายกัน (`SIMILAR_TO`)
 - ตาราง relationship ทั้งหมดในระบบ
 
-### Graph Explorer
+### กราฟความสัมพันธ์ (Graph Explorer)
 
 - แสดง neighborhood graph ของ Customer
 - ใช้ relationship จริงจาก Aura
 - เปิดดู edge table ได้
 
-### Admin / Setup
+### ตั้งค่าข้อมูล (Admin / Setup)
 
 - สร้าง constraints
 - seed sample nodes/relationships

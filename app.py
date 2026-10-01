@@ -41,29 +41,88 @@ IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
 IMAGE_MAX_SIDE = 480  # stored pictures are shrunk to this so a node property stays small
 BRAND_IMAGE_DIR = Path(__file__).parent / "images"  # bundled brand photos, see images/CREDITS.md
 
+# Sidebar menu: internal page key -> Thai label.
+PAGES = {
+    "Dashboard": "📊 ภาพรวม",
+    "Recommendations": "✨ แนะนำน้ำแร่",
+    "Customers": "👤 ลูกค้า",
+    "Waters": "💧 น้ำแร่",
+    "Relationships": "🔗 ความสัมพันธ์",
+    "Graph Explorer": "🕸️ กราฟความสัมพันธ์",
+    "Admin / Setup": "⚙️ ตั้งค่าข้อมูล",
+}
+
 st.set_page_config(
-    page_title="Mineral Water Recommender",
+    page_title="ระบบแนะนำน้ำแร่",
     page_icon="💧",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# Base colours and fonts live in .streamlit/config.toml; this adds the water-themed details.
 st.markdown(
     """
     <style>
-      .block-container {padding-top: 1.3rem; padding-bottom: 2rem;}
+      /* Top padding clears Streamlit's fixed header so the hero banner is not clipped */
+      .block-container {padding-top: 4rem; padding-bottom: 2rem;}
+
+      /* Hero banner: deep-water gradient, bubbles, and a wave along the bottom edge */
       .hero {
-        padding: 1.4rem 1.6rem; border-radius: 22px;
-        background: linear-gradient(120deg, #111827 0%, #1f2937 55%, #0f766e 100%);
-        color: white; margin-bottom: 1rem;
+        position: relative; overflow: hidden;
+        padding: 1.6rem 1.8rem 2.7rem; border-radius: 24px; margin-bottom: 1.1rem;
+        color: white;
+        background:
+          radial-gradient(circle at 88% 28%, rgba(255,255,255,.20) 0 26px, transparent 27px),
+          radial-gradient(circle at 78% 62%, rgba(255,255,255,.14) 0 14px, transparent 15px),
+          radial-gradient(circle at 94% 70%, rgba(255,255,255,.12) 0 9px, transparent 10px),
+          radial-gradient(circle at 70% 24%, rgba(255,255,255,.10) 0 7px, transparent 8px),
+          linear-gradient(120deg, #0b3954 0%, #0e7490 55%, #22b8cf 100%);
+        box-shadow: 0 10px 28px rgba(11,57,84,.18);
       }
-      .hero h1 {margin:0; font-size:2.15rem;}
-      .hero p {opacity:.88; margin:.35rem 0 0 0;}
+      .hero::after {
+        content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 44px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 60' preserveAspectRatio='none'%3E%3Cpath d='M0 34 C150 64 300 4 450 34 S750 64 900 34 S1100 4 1200 34 V60 H0Z' fill='%23ffffff' fill-opacity='.22'/%3E%3Cpath d='M0 44 C200 20 400 66 600 44 S1000 20 1200 44 V60 H0Z' fill='%23f3fafc'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+      }
+      .hero h1 {margin: 0; padding: 0; font-size: 2.1rem; color: white;}
+      .hero p {opacity: .92; margin: .35rem 0 0 0;}
+      .hero .hero-sub {opacity: .75; font-size: .85rem; letter-spacing: .04em;}
+
+      /* Sidebar: deep-water gradient with pill-shaped menu items */
+      [data-testid="stSidebar"] {background: linear-gradient(180deg, #0b3954 0%, #0e5f7a 100%);}
+      .brand {display: flex; align-items: center; gap: .6rem; margin: .2rem 0 .1rem;}
+      .brand .drop {
+        width: 42px; height: 42px; border-radius: 14px; font-size: 1.4rem;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(95,212,230,.20); border: 1px solid rgba(95,212,230,.45);
+      }
+      .brand b {font-size: 1.15rem; line-height: 1.2; color: #ffffff;}
+      .brand span {font-size: .78rem; opacity: .75;}
+      [data-testid="stSidebar"] [role="radiogroup"] {gap: .2rem;}
+      [data-testid="stSidebar"] [role="radiogroup"] label {
+        width: 100%; padding: .5rem .7rem; border-radius: 12px; transition: background .15s;
+      }
+      [data-testid="stSidebar"] [role="radiogroup"] label:hover {background: rgba(255,255,255,.08);}
+      [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+        background: rgba(95,212,230,.20); box-shadow: inset 3px 0 0 #5fd4e6;
+      }
+
+      /* Cards */
+      [data-testid="stMetric"] {
+        background: #ffffff; border: 1px solid #c5e3ee; border-top: 4px solid #22b8cf;
+        border-radius: 18px; padding: 1rem 1.2rem; box-shadow: 0 4px 14px rgba(14,116,144,.08);
+      }
+      [data-testid="stMetricValue"] {color: #0e7490; font-weight: 700;}
+      [class*="st-key-card_"], [data-testid="stForm"] {
+        background: #ffffff; box-shadow: 0 4px 14px rgba(14,116,144,.07);
+      }
+      [data-testid="stImage"] img {border-radius: 14px; box-shadow: 0 4px 12px rgba(11,57,84,.12);}
+
       .score-pill {
-        display:inline-block; padding:.2rem .55rem; border-radius:999px;
-        background:#0f766e; color:white; font-size:.8rem; font-weight:700;
+        display: inline-block; padding: .2rem .65rem; border-radius: 999px;
+        background: linear-gradient(90deg, #0e7490, #22b8cf);
+        color: white; font-size: .8rem; font-weight: 700;
       }
-      .muted {opacity:.72; font-size:.9rem;}
+      .muted {opacity: .72; font-size: .9rem;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -100,7 +159,7 @@ def show_flash() -> None:
 def customer_selector(key: str = "customer") -> str:
     customers = get_customers()
     if not customers:
-        st.info("ยังไม่มีข้อมูลลูกค้า กรุณาไปหน้า Admin / Setup แล้วสร้างข้อมูลตัวอย่าง หรือเพิ่มลูกค้าที่หน้า Customers")
+        st.info('ยังไม่มีข้อมูลลูกค้า กรุณาไปที่เมนู "ตั้งค่าข้อมูล" แล้วสร้างข้อมูลตัวอย่าง หรือเพิ่มลูกค้าที่เมนู "ลูกค้า"')
         st.stop()
     labels = {f"{x['customer_id']} — {x['name']}": x["customer_id"] for x in customers}
     chosen = st.selectbox("เลือกผู้ใช้", list(labels), key=key)
@@ -131,8 +190,8 @@ def placeholder_svg(water_id: str, name: str) -> str:
     hue = zlib.crc32(water_id.encode()) % 360
     text = name if len(name) <= 18 else name[:17] + "…"
     font_size = min(11.0, 116 / max(len(text), 1))  # shrink long names to fit the 76-unit label
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
-  <rect width="240" height="240" rx="24" fill="hsl({hue},60%,94%)"/>
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -40 240 320" width="240" height="320">
+  <rect y="-40" width="240" height="320" fill="hsl({hue},60%,94%)"/>
   <rect x="103" y="26" width="34" height="18" rx="4" fill="hsl({hue},55%,38%)"/>
   <path d="M106 44h28v20c0 12 24 20 24 44v92c0 9-7 16-16 16H98c-9 0-16-7-16-16v-92c0-24 24-32 24-44z"
         fill="hsl({hue},65%,56%)"/>
@@ -273,20 +332,26 @@ def manage_nodes(
 require_connection()
 
 with st.sidebar:
-    st.markdown("## 💧 MineralWater")
-    st.caption("Neo4j Aura + Streamlit")
-    page = st.radio(
-        "เมนู",
-        ["Dashboard", "Recommendations", "Customers", "Waters", "Relationships", "Graph Explorer", "Admin / Setup"],
+    st.markdown(
+        """
+        <div class="brand">
+          <div class="drop">💧</div>
+          <div><b>ระบบแนะนำน้ำแร่</b><br><span>Neo4j Aura + Streamlit</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
     st.divider()
-    st.caption("Bachelor-level Graph Database Project")
+    page = st.radio("เมนู", list(PAGES), format_func=PAGES.get, key="page")
+    st.divider()
+    st.caption("โปรเจ็ค Graph Database ระดับปริญญาตรี")
 
 st.markdown(
     """
     <div class="hero">
-      <h1>💧 Mineral Water Recommendation System</h1>
-      <p>ระบบแนะนำน้ำแร่ด้วย Graph Database จากลูกค้าที่มีรสนิยมคล้ายกัน</p>
+      <div class="hero-sub">MINERAL WATER RECOMMENDATION SYSTEM</div>
+      <h1>💧 ระบบแนะนำน้ำแร่</h1>
+      <p>แนะนำน้ำแร่ด้วย Graph Database จากลูกค้าที่มีรสนิยมคล้ายกัน</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -298,10 +363,10 @@ if page == "Dashboard":
     st.subheader("ภาพรวมระบบ")
     m = get_dashboard_metrics()
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Customers", m.get("customers", 0))
-    c2.metric("Waters", m.get("waters", 0))
-    c3.metric("LIKES relationships", m.get("likes", 0))
-    c4.metric("SIMILAR_TO relationships", m.get("similarities", 0))
+    c1.metric("👤 ลูกค้า", m.get("customers", 0))
+    c2.metric("💧 น้ำแร่", m.get("waters", 0))
+    c3.metric("❤️ ความสัมพันธ์ LIKES", m.get("likes", 0))
+    c4.metric("🤝 ความสัมพันธ์ SIMILAR_TO", m.get("similarities", 0))
 
     waters = sorted(get_waters(), key=lambda w: (-w["likes"], w["name"]))
     if waters:
@@ -358,7 +423,7 @@ elif page == "Recommendations":
     images = get_water_images() if rows else {}
     for i, row in enumerate(rows, start=1):
         names = ", ".join(row.get("similar_names") or [])
-        with st.container(border=True):
+        with st.container(border=True, key=f"card_rec_{i}"):
             picture, details = st.columns([1, 6], vertical_alignment="center")
             picture.image(water_picture(row["water_id"], str(row["recommendation"]), images), width=120)
             details.markdown(
@@ -475,14 +540,15 @@ elif page == "Relationships":
         st.dataframe(pd.DataFrame(list_similarities()), width="stretch", hide_index=True)
 
 elif page == "Graph Explorer":
-    st.subheader("🕸️ Graph Explorer")
+    st.subheader("🕸️ กราฟความสัมพันธ์")
     customer_id = customer_selector("graph_customer")
     rows = graph_neighborhood(customer_id)
     if not rows:
         st.info("ผู้ใช้นี้ยังไม่มีความสัมพันธ์ในกราฟ")
     else:
-        fill = {"Customer": "#dbeafe", "Water": "#ccfbf1"}
-        dot = ["digraph G {", 'rankdir="LR";', 'node [shape=box, style="rounded,filled", fillcolor="#f8fafc"];']
+        fill = {"Customer": "#e0f2fe", "Water": "#cdf5ee"}
+        dot = ["digraph G {", 'rankdir="LR";', 'node [shape=box, style="rounded,filled", fillcolor="#f8fafc", color="#7cc4d8", fontname="sans-serif"];',
+               'edge [color="#4b7f95", fontcolor="#33596b", fontname="sans-serif"];']
         seen_nodes = set()
         for r in rows:
             for nid, label, name in [
@@ -492,7 +558,7 @@ elif page == "Graph Explorer":
                 if nid not in seen_nodes:
                     safe_name = str(name).replace("\\", "/").replace('"', "'")
                     safe_id = str(nid).replace("\\", "/").replace('"', "'")
-                    border = ', penwidth=3, color="#0f766e"' if nid == customer_id else ""
+                    border = ', penwidth=3, color="#0e7490"' if nid == customer_id else ""
                     dot.append(
                         f'"{safe_id}" [label="{safe_name}\\n:{label}", fillcolor="{fill.get(label, "#f8fafc")}"{border}];'
                     )
