@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import base64
+import zlib
 from html import escape
+from io import BytesIO
 from typing import Any, Callable
 
 import pandas as pd
 import streamlit as st
+from PIL import Image, ImageOps
 
 from neo4j_service import (
     create_customer,
@@ -14,6 +18,7 @@ from neo4j_service import (
     get_customers,
     get_dashboard_metrics,
     get_profile,
+    get_water_images,
     get_waters,
     graph_neighborhood,
     list_likes,
@@ -23,9 +28,13 @@ from neo4j_service import (
     seed_demo_data,
     set_likes,
     set_similar,
+    set_water_image,
     update_customer,
     update_water,
 )
+
+IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
+IMAGE_MAX_SIDE = 480  # stored pictures are shrunk to this so a node property stays small
 
 st.set_page_config(
     page_title="Mineral Water Recommender",
@@ -45,10 +54,6 @@ st.markdown(
       }
       .hero h1 {margin:0; font-size:2.15rem;}
       .hero p {opacity:.88; margin:.35rem 0 0 0;}
-      .water-card {
-        padding: 1rem 1.1rem; border: 1px solid rgba(128,128,128,.25);
-        border-radius: 16px; margin-bottom: .75rem;
-      }
       .score-pill {
         display:inline-block; padding:.2rem .55rem; border-radius:999px;
         background:#0f766e; color:white; font-size:.8rem; font-weight:700;
@@ -102,6 +107,50 @@ def next_id(existing: list[str], prefix: str, start: int) -> str:
     return f"{prefix}{(max(numbers) + 1 if numbers else start):03d}"
 
 
+def prepare_image(uploaded: Any) -> bytes | None:
+    """Shrink an uploaded picture to a small JPEG; None when the file is not a readable image."""
+    try:
+        picture = ImageOps.exif_transpose(Image.open(uploaded)).convert("RGBA")
+        flat = Image.new("RGB", picture.size, "white")  # JPEG has no transparency
+        flat.paste(picture, mask=picture.getchannel("A"))
+        flat.thumbnail((IMAGE_MAX_SIDE, IMAGE_MAX_SIDE))
+        buffer = BytesIO()
+        flat.save(buffer, "JPEG", quality=85)
+    except Exception:
+        return None
+    return buffer.getvalue()
+
+
+def placeholder_svg(water_id: str, name: str) -> str:
+    """Drawn bottle for waters without an uploaded picture; colour is fixed per water_id."""
+    hue = zlib.crc32(water_id.encode()) % 360
+    text = name if len(name) <= 18 else name[:17] + "…"
+    font_size = min(11.0, 116 / max(len(text), 1))  # shrink long names to fit the 76-unit label
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <rect width="240" height="240" rx="24" fill="hsl({hue},60%,94%)"/>
+  <rect x="103" y="26" width="34" height="18" rx="4" fill="hsl({hue},55%,38%)"/>
+  <path d="M106 44h28v20c0 12 24 20 24 44v92c0 9-7 16-16 16H98c-9 0-16-7-16-16v-92c0-24 24-32 24-44z"
+        fill="hsl({hue},65%,56%)"/>
+  <path d="M94 112c0-10 6-17 12-23v112c-7 0-12-5-12-12z" fill="#ffffff" opacity=".28"/>
+  <rect x="82" y="128" width="76" height="46" fill="#ffffff"/>
+  <text x="120" y="155" text-anchor="middle" font-family="sans-serif" font-size="{font_size:.1f}" font-weight="700"
+        fill="hsl({hue},55%,28%)">{escape(text)}</text>
+</svg>"""
+
+
+def water_picture(water_id: str, name: str, images: dict[str, bytes]) -> bytes | str:
+    """What to hand to st.image: the uploaded JPEG, or the drawn placeholder."""
+    return images.get(water_id) or placeholder_svg(water_id, name)
+
+
+def water_picture_uri(water_id: str, name: str, images: dict[str, bytes]) -> str:
+    """Same picture as a data URI, for st.column_config.ImageColumn."""
+    data = images.get(water_id)
+    if data:
+        return "data:image/jpeg;base64," + base64.b64encode(data).decode()
+    return "data:image/svg+xml;base64," + base64.b64encode(placeholder_svg(water_id, name).encode()).decode()
+
+
 def manage_nodes(
     *,
     noun: str,
@@ -114,8 +163,13 @@ def manage_nodes(
     update: Callable[[str, str], bool],
     delete: Callable[[str], bool],
     delete_warning: Callable[[dict[str, Any]], str],
+    images: dict[str, bytes] | None = None,
+    set_image: Callable[[str, bytes | None], bool] | None = None,
 ) -> None:
-    """Table + add / edit / delete tabs for one node label (Customer or Water)."""
+    """Table + add / edit / delete tabs for one node label (Customer or Water).
+
+    Pass `images` and `set_image` to let the label carry an uploaded picture.
+    """
     st.write(f"ทั้งหมด {len(rows)} รายการ")
     if rows:
         st.dataframe(pd.DataFrame(rows).rename(columns=column_labels), width="stretch", hide_index=True)
@@ -123,19 +177,30 @@ def manage_nodes(
     by_id = {row[id_field]: row for row in rows}
     add_tab, edit_tab, delete_tab = st.tabs(["➕ เพิ่ม", "✏️ แก้ไข", "🗑️ ลบ"])
 
+    # Bumped after each successful save so the form (name, uploader) starts empty again.
+    saves_key = f"saves_{id_field}"
+    saves = st.session_state.get(saves_key, 0)
+
     with add_tab:
-        with st.form(f"add_{id_field}"):
+        with st.form(f"add_{id_field}_{saves}"):
             new_id = st.text_input(f"รหัส{noun} ({id_field})", value=next_id(list(by_id), id_prefix, id_start))
             new_name = st.text_input(f"ชื่อ{noun}")
+            upload = st.file_uploader(f"รูป{noun} (ไม่บังคับ)", type=IMAGE_TYPES) if set_image else None
             submitted = st.form_submit_button("เพิ่ม", type="primary")
         if submitted:
             new_id, new_name = new_id.strip(), new_name.strip()
+            new_image = prepare_image(upload) if upload else None
             if not new_id or not new_name:
                 st.error("กรุณากรอกทั้งรหัสและชื่อ")
+            elif upload and new_image is None:
+                st.error("ไฟล์ที่อัปโหลดไม่ใช่รูปภาพที่อ่านได้ กรุณาเลือกไฟล์อื่น")
             elif not create(new_id, new_name):
                 st.error(f"รหัส {new_id} ถูกใช้แล้ว กรุณาใช้รหัสอื่น")
             else:
-                flash(f"เพิ่ม{noun} {new_id} — {new_name} แล้ว")
+                if new_image:
+                    set_image(new_id, new_image)
+                st.session_state[saves_key] = saves + 1
+                flash(f"เพิ่ม{noun} {new_id} — {new_name} แล้ว" + (" พร้อมรูป" if new_image else ""))
                 st.rerun()
 
     if not rows:
@@ -148,18 +213,37 @@ def manage_nodes(
 
     with edit_tab:
         edit_id = st.selectbox(f"เลือก{noun}ที่จะแก้ไข", list(by_id), format_func=label, key=f"edit_{id_field}")
-        with st.form(f"edit_form_{id_field}"):
+        has_image = bool(set_image) and edit_id in (images or {})
+        if set_image:
+            st.image(water_picture(edit_id, by_id[edit_id]["name"], images or {}), width=160)
+            st.caption("รูปปัจจุบัน" if has_image else "ยังไม่มีรูปที่อัปโหลด (แสดงรูปเริ่มต้น)")
+        upload, remove_image = None, False
+        with st.form(f"edit_form_{id_field}_{edit_id}_{saves}"):
             st.text_input(f"รหัส{noun} ({id_field})", value=edit_id, disabled=True)
             edited_name = st.text_input(f"ชื่อ{noun}", value=by_id[edit_id]["name"])
+            if set_image:
+                upload = st.file_uploader(f"เปลี่ยนรูป{noun} (ไม่บังคับ)", type=IMAGE_TYPES)
+                if has_image:
+                    remove_image = st.checkbox("ลบรูปปัจจุบัน แล้วกลับไปใช้รูปเริ่มต้น")
             submitted = st.form_submit_button("บันทึกการแก้ไข", type="primary")
         if submitted:
             edited_name = edited_name.strip()
+            new_image = prepare_image(upload) if upload else None
             if not edited_name:
                 st.error("ชื่อห้ามว่าง")
+            elif upload and new_image is None:
+                st.error("ไฟล์ที่อัปโหลดไม่ใช่รูปภาพที่อ่านได้ กรุณาเลือกไฟล์อื่น")
             elif not update(edit_id, edited_name):
                 st.error(f"ไม่พบ{noun} {edit_id} (อาจถูกลบไปแล้ว)")
             else:
-                flash(f"แก้ไข{noun} {edit_id} เป็น {edited_name} แล้ว")
+                # A newly uploaded picture wins over the "remove" checkbox.
+                if new_image:
+                    set_image(edit_id, new_image)
+                elif remove_image:
+                    set_image(edit_id, None)
+                st.session_state[saves_key] = saves + 1
+                image_note = " และเปลี่ยนรูป" if new_image else " และลบรูป" if remove_image else ""
+                flash(f"แก้ไข{noun} {edit_id} เป็น {edited_name}{image_note} แล้ว")
                 st.rerun()
 
     with delete_tab:
@@ -208,12 +292,17 @@ if page == "Dashboard":
     waters = sorted(get_waters(), key=lambda w: (-w["likes"], w["name"]))
     if waters:
         st.markdown("### ความนิยมของน้ำแร่")
+        images = get_water_images()
+        table = [{"image": water_picture_uri(w["water_id"], w["name"], images), **w} for w in waters]
         st.dataframe(
-            pd.DataFrame(waters).rename(columns={"water_id": "รหัส", "name": "น้ำแร่", "likes": "จำนวนคนชอบ"}),
+            pd.DataFrame(table).rename(
+                columns={"image": "รูป", "water_id": "รหัส", "name": "น้ำแร่", "likes": "จำนวนคนชอบ"}
+            ),
             column_config={
+                "รูป": st.column_config.ImageColumn(width="small"),
                 "จำนวนคนชอบ": st.column_config.ProgressColumn(
                     format="%d", min_value=0, max_value=max(1, waters[0]["likes"])
-                )
+                ),
             },
             width="stretch",
             hide_index=True,
@@ -252,19 +341,21 @@ elif page == "Recommendations":
     st.caption("score = จำนวนลูกค้าที่คล้ายกัน (SIMILAR_TO) ที่ชอบน้ำแร่นั้น โดยตัดน้ำแร่ที่ผู้ใช้ชอบอยู่แล้วออก")
     if not rows:
         st.info("ยังไม่มีคำแนะนำสำหรับผู้ใช้นี้")
+    images = get_water_images() if rows else {}
     for i, row in enumerate(rows, start=1):
         names = ", ".join(row.get("similar_names") or [])
-        st.markdown(
-            f"""
-            <div class="water-card">
-              <span class="score-pill">#{i} · score {row['score']}</span>
-              <h3 style="margin:.55rem 0 .2rem 0">{escape(str(row['recommendation']))}</h3>
-              <div class="muted">{escape(str(row['water_id']))}</div>
-              <p><b>เหตุผล:</b> ลูกค้าที่คล้ายกัน {row['score']} คนชอบ ({escape(names)})</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        with st.container(border=True):
+            picture, details = st.columns([1, 6], vertical_alignment="center")
+            picture.image(water_picture(row["water_id"], str(row["recommendation"]), images), width=120)
+            details.markdown(
+                f"""
+                <span class="score-pill">#{i} · score {row['score']}</span>
+                <h3 style="margin:.55rem 0 .2rem 0">{escape(str(row['recommendation']))}</h3>
+                <div class="muted">{escape(str(row['water_id']))}</div>
+                <p><b>เหตุผล:</b> ลูกค้าที่คล้ายกัน {row['score']} คนชอบ ({escape(names)})</p>
+                """,
+                unsafe_allow_html=True,
+            )
 
 elif page == "Customers":
     st.subheader("👤 จัดการลูกค้า")
@@ -286,10 +377,21 @@ elif page == "Customers":
 
 elif page == "Waters":
     st.subheader("💧 จัดการน้ำแร่")
+    waters = get_waters()
+    images = get_water_images()
+    if waters:
+        gallery = st.columns(6)
+        for i, w in enumerate(waters):
+            with gallery[i % 6]:
+                st.image(water_picture(w["water_id"], w["name"], images), width=140)
+                st.caption(f"{w['water_id']} — {w['name']}")
+        st.caption("น้ำแร่ที่ยังไม่มีรูปจะแสดงรูปขวดเริ่มต้น อัปโหลดรูปจริงได้ที่แท็บ เพิ่ม หรือ แก้ไข ด้านล่าง")
     manage_nodes(
         noun="น้ำแร่",
         id_field="water_id",
-        rows=get_waters(),
+        rows=waters,
+        images=images,
+        set_image=set_water_image,
         column_labels={"water_id": "รหัส", "name": "ชื่อ", "likes": "จำนวนคนชอบ"},
         id_prefix="W",
         id_start=101,
@@ -395,7 +497,7 @@ elif page == "Admin / Setup":
         """
         **Graph schema**
         - `(:Customer {customer_id, name})-[:SIMILAR_TO]-(:Customer)`
-        - `(:Customer)-[:LIKES]->(:Water {water_id, name})`
+        - `(:Customer)-[:LIKES]->(:Water {water_id, name, image})`
         """
     )
     if st.button("สร้าง Constraint + Demo Data", type="primary", width="stretch"):

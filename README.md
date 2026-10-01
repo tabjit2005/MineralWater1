@@ -11,8 +11,11 @@
 
 ```text
 (Customer {customer_id, name})-[:SIMILAR_TO]-(Customer)
-(Customer)-[:LIKES]->(Water {water_id, name})
+(Customer)-[:LIKES]->(Water {water_id, name, image})
 ```
+
+`image` คือรูปน้ำแร่ที่ผู้ใช้อัปโหลด (ไม่บังคับ) เก็บเป็น byte array ใน node โดยระบบย่อรูปเป็น JPEG ไม่เกิน 480 px ก่อนบันทึก
+น้ำแร่ที่ยังไม่มีรูปจะแสดงรูปขวดเริ่มต้นที่ระบบวาดให้
 
 ระบบแนะนำน้ำแร่ที่ **ลูกค้าที่มีรสนิยมคล้ายกันชอบ แต่เจ้าตัวยังไม่ได้ชอบ**
 
@@ -91,7 +94,7 @@ streamlit run app.py
 | Dashboard | จำนวน node / relationship, ความนิยมของน้ำแร่, โปรไฟล์ลูกค้า |
 | Recommendations | น้ำแร่ที่แนะนำพร้อม score และเหตุผล |
 | Customers | เพิ่ม / แก้ไขชื่อ / ลบลูกค้า |
-| Waters | เพิ่ม / แก้ไขชื่อ / ลบน้ำแร่ |
+| Waters | แกลเลอรีรูปน้ำแร่, เพิ่ม (พร้อมอัปโหลดรูป) / แก้ไขชื่อและรูป / ลบน้ำแร่ |
 | Relationships | เพิ่ม / ลบ `LIKES` และ `SIMILAR_TO` ของลูกค้าแต่ละคน |
 | Graph Explorer | กราฟรอบตัวลูกค้าที่เลือก |
 | Admin / Setup | สร้าง constraint และข้อมูลตัวอย่าง |

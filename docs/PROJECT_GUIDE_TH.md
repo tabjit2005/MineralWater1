@@ -52,7 +52,11 @@ graph LR
 | Label | Primary property | ตัวอย่าง property | หน้าที่ |
 | --- | --- | --- | --- |
 | Customer | customer_id | name | ลูกค้า / ผู้ใช้ระบบ |
-| Water | water_id | name | น้ำแร่ |
+| Water | water_id | name, image | น้ำแร่ |
+
+> `image` คือรูปที่ผู้ใช้อัปโหลด (ไม่บังคับ) เก็บเป็น byte array ใน node `Water` โดย `app.py` ย่อเป็น JPEG ไม่เกิน 480 px ก่อนบันทึก
+> เหตุผลที่เก็บในฐานข้อมูลแทนไฟล์ คือ Streamlit Community Cloud ไม่เก็บไฟล์ที่อัปโหลดไว้ถาวร
+> น้ำแร่ที่ยังไม่มีรูปจะแสดงรูปขวดเริ่มต้นที่ระบบวาดให้
 
 ### Relationship
 
@@ -272,6 +276,7 @@ records, _, _ = driver.execute_query(
 - เพิ่ม (ระบบเสนอรหัสถัดไปให้ และตรวจรหัสซ้ำ)
 - แก้ไขชื่อ
 - ลบ (ต้องติ๊กยืนยัน และลบ relationship ที่เกี่ยวข้องด้วย)
+- เฉพาะ Waters: แกลเลอรีรูป, อัปโหลดรูปตอนเพิ่ม, เปลี่ยนหรือลบรูปตอนแก้ไข (png / jpg / webp)
 
 ### Relationships
 

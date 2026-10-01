@@ -233,6 +233,32 @@ def update_water(water_id: str, name: str) -> bool:
     return bool(rows)
 
 
+def get_water_images() -> dict[str, bytes]:
+    """Uploaded pictures keyed by water_id; waters without one are absent."""
+    rows = query(
+        """
+        MATCH (w:Water)
+        WHERE w.image IS NOT NULL
+        RETURN w.water_id AS water_id, w.image AS image
+        """
+    )
+    return {row["water_id"]: bytes(row["image"]) for row in rows}
+
+
+def set_water_image(water_id: str, image: bytes | None) -> bool:
+    """Store the picture as a byte-array property; None removes it (SET to null drops the property)."""
+    rows = query(
+        """
+        MATCH (w:Water {water_id:$water_id})
+        SET w.image = $image
+        RETURN w.water_id AS water_id
+        """,
+        {"water_id": water_id, "image": image},
+        write=True,
+    )
+    return bool(rows)
+
+
 def delete_water(water_id: str) -> bool:
     """DETACH DELETE: also removes every LIKES relationship pointing at the water."""
     rows = query(
