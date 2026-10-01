@@ -672,7 +672,6 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-    st.caption("โปรเจ็ค Graph Database ระดับปริญญาตรี")
 
 st.markdown(
     """
